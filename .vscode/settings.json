@@ -1,0 +1,9 @@
+{
+  "eslint.workingDirectories": ["./functions"],
+  "eslint.format.enable": true,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.removeUnusedImports": "explicit",
+    "source.addMissingImports": "explicit"
+  }
+}
