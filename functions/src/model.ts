@@ -1,3 +1,4 @@
+export type Dictionary = { [key: string]: any; }
 export enum UserType {
   USER = "user",
   GUEST = "guest",
@@ -9,7 +10,7 @@ export enum GptVersion {
 }
 
 
-export const GPT_MODELS = {
+export const AI_MODELS = {
   [GptVersion.THREE]: "gpt-3.5-turbo-instruct",
   [GptVersion.FOUR]: "gpt-4-0125-preview",
 }
@@ -48,8 +49,8 @@ export const QUERY_TOKEN_LIMIT = {
 }
 
 export const LIMIT = {
-  [UserType.USER]: 200,
-  [UserType.GUEST]: 50,
+  [UserType.USER]: 300,
+  [UserType.GUEST]: 60,
 }
 
 export interface AIRequest<T extends BaseQuery> {
@@ -124,14 +125,17 @@ export const QUERIES: { [key in GptVersion]: { [key in QueryType]?: (query: any)
   [GptVersion.THREE]: {
     [QueryType.DURABILITY]: (query) => `get ${query.item} shelf life ${getLocationText(query.stuffLocation)}, in JSON format {h: number, d: number, r:boolean, c:string}, h:number of hours, d: number of days, r: is this recommended, c:comment strictly under 20 words.`,
     [QueryType.EMOJI]: (query) => `represent ${query.item} (food) with 1 emoji, no explaination`,
+    [QueryType.CATEGORY]: (query) => `which category in Meal,Seafood,Dairy,Meat,Produce,Condiments,Drinks,Others,Grains,Baked,Canned,Snacks,Sauces,Spices,Oils does ${query.item} belong, answer in one word.`,
   },
   [GptVersion.FOUR]: {
     [QueryType.DURABILITY]: (query) => `${query.item} shelf life ${getLocationText(query.stuffLocation)}, JSON {h: number, d: number, r:boolean, c:string}, h:number of hours, d: number of days, r: is this recommended, c:comment strictly under 20 words. No new lines`,
     [QueryType.EMOJI]: (query) => `only 1 emoji for ${query.item} (food), no explaination`,
-    [QueryType.CATEGORY]: (query) => `which category in Meal,Seafood,Dairy,Meat,Produce,Condiments,Drinks,Others,Grains,Baked,Canned,Snacks,Sauces,Spices,Oils does ${query.item} belong, no explaination`,
+    [QueryType.CATEGORY]: (query) => `which category in Meal,Seafood,Dairy,Meat,Produce,Condiments,Drinks,Others,Grains,Baked,Canned,Snacks,Sauces,Spices,Oils does ${query.item} belong, answer in one word.`,
   },
 }
 
 function getLocationText(stuffLocation: StuffLocation): string {
   return LOCATION_AI_TEXT[stuffLocation] ?? "in " + stuffLocation
 }
+
+export const BASE_IMAGE_LOCATION = "images/objects/"
