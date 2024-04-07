@@ -54,7 +54,6 @@ export const LIMIT = {
 }
 
 export interface AIRequest<T extends BaseQuery> {
-  id: string;
   gpt: GptVersion;
   queryType: QueryType;
   query: T
@@ -62,11 +61,25 @@ export interface AIRequest<T extends BaseQuery> {
 
 export interface AIResponse {
   response: {
-    id: string;
     content: string;
     finish_reason: string;
     model: string;
   };
+}
+
+export interface BaseAIRequestLog extends Dictionary {
+  queryType: QueryType;
+  model: string;
+  responseTime: number;
+}
+
+export interface GPTRequestLog extends BaseAIRequestLog {
+  tokens: number;
+  finishReason: string;
+}
+
+export interface CloudVisionRequestLog extends BaseAIRequestLog {
+  fileSize: number;
 }
 
 export interface BaseQuery {

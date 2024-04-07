@@ -11,10 +11,7 @@ import {
   AIResponse,
   BASE_IMAGE_LOCATION,
   BaseGptResponse,
-  BaseQuery,
-  Dictionary,
-  DurabiltityQuery,
-  AI_MODELS,
+  BaseQuery, AI_MODELS,
   GPT_URLS,
   Gpt3Response,
   Gpt4Response,
@@ -24,7 +21,7 @@ import {
   QUERIES,
   QUERY_TOKEN_LIMIT,
   QueryType,
-  UserType,
+  UserType, BaseAIRequestLog, GPTRequestLog
 } from "./model";
 
 initializeApp();
@@ -34,11 +31,11 @@ const openAIKey = defineSecret("OPENAI_KEY");
 
 exports.queryAI = onCall<AIRequest<BaseQuery>, Promise<AIResponse>>(
   { minInstances: 1, secrets: [openAIKey] },
-  async ({ data: { id, gpt, queryType, query }, auth, rawRequest }) => {
+  async ({ data: { gpt, queryType, query }, auth, rawRequest }) => {
     if (!auth?.uid && !rawRequest.ip) {
       throw new HttpsError("unauthenticated", "User not signed in");
     }
-    if (!id || !query) {
+    if (!query || !queryType || !gpt) {
       throw new HttpsError("invalid-argument", "missing argument");
     }
 
@@ -79,25 +76,21 @@ exports.queryAI = onCall<AIRequest<BaseQuery>, Promise<AIResponse>>(
       const response = await axios.post<BaseGptResponse>(url, body, {
         headers: getQueryHeaders(),
       });
-      const response_time = Date.now() - startTime;
+      const responseTime = Date.now() - startTime;
       if (response.status === 200) {
         logRequest(
           userType,
           uid,
-          id,
-          queryType === QueryType.DURABILITY
-            ? (<DurabiltityQuery>query).stuffLocation
-            : queryType,
           {
-            ...response.data.usage,
-            finish_reason: response.data.choices[0].finish_reason,
+            tokens: response.data.usage.total_tokens,
+            finishReason: response.data.choices[0].finish_reason,
             model: AI_MODELS[gpt],
-            response_time,
-          }
+            responseTime,
+            queryType
+          } as GPTRequestLog
         );
         return {
           response: {
-            id,
             content:
               gpt === GptVersion.FOUR
                 ? (<Gpt4Response>response.data).choices[0].message.content
@@ -127,13 +120,15 @@ exports.logObjectRequest = onDocumentCreated("objects/{id}", async (event) => {
       .split(".")[0]
       .split("_");
     const fileMetadata = (await file.getMetadata())[0];
-    const response_time =
+    const responseTime =
       new Date(event.time).getUTCMilliseconds() - new Date(fileMetadata.timeCreated).getUTCMilliseconds();
-    logRequest(UserType.USER, ids[0], ids[1], QueryType.OBJECT, {
+    logRequest(UserType.USER, ids[0], {
       objects: doc.get("objects"),
       model: "Google Cloud Vision",
-      response_time,
-    });
+      responseTime,
+      queryType: QueryType.OBJECT,
+      fileSize: fileMetadata.size
+    }, ids[1]);
     file.delete();
     doc.ref.delete();
   }
@@ -167,22 +162,17 @@ function getQueryBody(gpt: GptVersion, type: QueryType, query: any) {
 function logRequest(
   userType: UserType,
   uid: string,
-  id: string,
-  kind: string,
-  log: Dictionary
+  log: BaseAIRequestLog,
+  id?: string,
 ): void {
   db.doc(`${userType}s/${uid}`).set(
     { weeklyUsage: FieldValue.increment(1) },
     { merge: true }
   );
-  db.doc(`${userType}s/${uid}/requests/${id}`).set(
-    {
-      id,
-      [kind]: {
-        ...log,
-        timestamp: FieldValue.serverTimestamp(),
-      },
-    },
-    { merge: true }
-  );
+  const data = { ...log, timestamp: FieldValue.serverTimestamp() }
+  if (id) {
+    db.doc(`${userType}s/${uid}/requests/${id}`).create(data)
+  } else {
+    db.collection(`${userType}s/${uid}/requests`).add(data)
+  }
 }
